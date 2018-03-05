@@ -11,6 +11,8 @@ import android.support.v7.widget.AppCompatSpinner
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.webkit.WebChromeClient
+import android.webkit.WebView
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.content.edit
@@ -53,9 +55,9 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
     }
 
     // detect 5 tap
-    var numberOfTaps = 0
-    var lastTapTimeMs: Long = 0
-    var touchDownMs: Long = 0
+    private var numberOfTaps = 0
+    private var lastTapTimeMs: Long = 0
+    private var touchDownMs: Long = 0
 
     private lateinit var gson: Gson
     private lateinit var httpLoggingInterceptor: HttpLoggingInterceptor
@@ -71,6 +73,12 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        initViews()
+        initModules()
+        loadPages()
+    }
+
+    private fun initViews() {
         setContentView(R.layout.activity_main)
 
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
@@ -84,9 +92,13 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
                 View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-
-        initModules()
-        loadPages()
+        
+        webView.settings.javaScriptEnabled = true
+        webView.settings.domStorageEnabled = true
+        webView.settings.displayZoomControls = false
+        WebView.setWebContentsDebuggingEnabled(true)
+        webView.addJavascriptInterface(KioskJsInterface(this), "Native")
+        webView.webChromeClient = WebChromeClient()
     }
 
     private fun initModules() {
