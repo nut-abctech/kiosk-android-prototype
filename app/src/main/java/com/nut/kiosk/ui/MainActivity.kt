@@ -92,12 +92,12 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
                 View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-        
+
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.displayZoomControls = false
         WebView.setWebContentsDebuggingEnabled(true)
-        webView.addJavascriptInterface(KioskJsInterface(this), "Native")
+        webView.addJavascriptInterface(KioskJsInterface(this@MainActivity), "Native")
         webView.webChromeClient = WebChromeClient()
     }
 
@@ -120,7 +120,7 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
                 .client(okHttpClient)
                 .build()
 
-        kioskApi = retrofit?.create(KioskApi::class.java)
+        kioskApi = retrofit.create(KioskApi::class.java)
 
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this)
 
@@ -131,7 +131,7 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
             loadPages()
 
             // re-register
-            var refreshOption = sharedPreferences.getString(PREF_REFRESH_OPTION, REFRESH_OPT_DEFAULT)
+            val refreshOption = sharedPreferences.getString(PREF_REFRESH_OPTION, REFRESH_OPT_DEFAULT)
             if (refreshOption != REFRESH_OPT_DISABLED) {
                 handler.removeCallbacks(runnable)
                 handler.postDelayed(runnable, refreshOption.toLong() * 1000)// * 60)
@@ -139,7 +139,7 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
         }
 
 
-        var refreshOption = sharedPreferences.getString(PREF_REFRESH_OPTION, REFRESH_OPT_DEFAULT)
+        val refreshOption = sharedPreferences.getString(PREF_REFRESH_OPTION, REFRESH_OPT_DEFAULT)
         if (sharedPreferences.getString(PREF_SELECTED_PAGE_ID, "").isNullOrEmpty() && refreshOption != REFRESH_OPT_DISABLED) {
             handler.removeCallbacks(runnable)
             handler.postDelayed(runnable, refreshOption.toLong() * 1000) // * 60)
@@ -155,7 +155,7 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
 
                     Timber.d("loadPages() count=" + pageList.size)
                     for (page in pageList) {
-                        var file = File(filesDir, page.path)
+                        val file = File(filesDir, page.path)
                         page.downloaded = file.exists()
 
                         if (!page.downloaded) {
@@ -219,10 +219,10 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
     }
 
     private fun showSelectedPage() {
-        var selectedPageId = sharedPreferences.getString(PREF_SELECTED_PAGE_ID, "")
+        val selectedPageId = sharedPreferences.getString(PREF_SELECTED_PAGE_ID, "")
         Timber.d("showSelectedPage() - selectedPageId=" + selectedPageId)
 
-        var selectedPage = if (selectedPageId.isNullOrEmpty()) {
+        val selectedPage = if (selectedPageId.isNullOrEmpty()) {
             AppDatabase.getInstance(this@MainActivity)?.pageDao()?.findLatest()
         } else {
             AppDatabase.getInstance(this@MainActivity)?.pageDao()?.findById(selectedPageId)
@@ -233,7 +233,7 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
         } else {
             Timber.d("selectedPage=" + selectedPage.id)
             try {
-                var file = File(filesDir, selectedPage.path)
+                val file = File(filesDir, selectedPage.path)
                 webView.loadUrl("file:///" + file)
             } catch (e: Exception) {
                 Timber.e(e)
@@ -245,21 +245,21 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
 
     private fun showSettingDialog() {
         val pageList = AppDatabase.getInstance(this@MainActivity)?.pageDao()?.findAllStoredPage()
-        var dialogView = View.inflate(this, R.layout.dialog_settings, null)
+        val dialogView = View.inflate(this, R.layout.dialog_settings, null)
 
-        var list = ArrayList<String>()
+        val list = ArrayList<String>()
         list.add("Latest")
         pageList?.mapTo(list) { "version " + it.version }
 
-        var dataAdapter = ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, list)
+        val dataAdapter = ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, list)
         dataAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         dialogView.findViewById<AppCompatSpinner>(R.id.spVersion).adapter = dataAdapter
 
-        var selectedPageId = sharedPreferences.getString(PREF_SELECTED_PAGE_ID, "")
+        val selectedPageId = sharedPreferences.getString(PREF_SELECTED_PAGE_ID, "")
         if (selectedPageId.isNullOrEmpty()) {
             dialogView.findViewById<AppCompatSpinner>(R.id.spVersion).setSelection(0)
         } else {
-            var storedPageList = AppDatabase.getInstance(this@MainActivity)?.pageDao()?.findAllStoredPage()
+            val storedPageList = AppDatabase.getInstance(this@MainActivity)?.pageDao()?.findAllStoredPage()
             for ((index, page) in storedPageList!!.withIndex()) {
                 if (page.id == selectedPageId) {
                     dialogView.findViewById<AppCompatSpinner>(R.id.spVersion).setSelection(index + 1)
@@ -268,7 +268,7 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
             }
         }
 
-        var refreshOption = sharedPreferences.getString(PREF_REFRESH_OPTION, REFRESH_OPT_DEFAULT)
+        val refreshOption = sharedPreferences.getString(PREF_REFRESH_OPTION, REFRESH_OPT_DEFAULT)
         Timber.d("refreshOption=" + refreshOption)
         if (refreshOption == REFRESH_OPT_DISABLED) {
             dialogView.findViewById<AppCompatSpinner>(R.id.spRefreshOption).setSelection(0)
@@ -276,7 +276,7 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
             var i = 0
             var selectedRefreshOptPos = 0
             while (i < dialogView.findViewById<AppCompatSpinner>(R.id.spRefreshOption).adapter.count) {
-                var value = dialogView.findViewById<AppCompatSpinner>(R.id.spRefreshOption).adapter.getItem(i).toString()
+                val value = dialogView.findViewById<AppCompatSpinner>(R.id.spRefreshOption).adapter.getItem(i).toString()
                 Timber.d("value=" + value)
                 if (value.startsWith(refreshOption)) {
                     selectedRefreshOptPos = i
@@ -287,7 +287,7 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
             dialogView.findViewById<AppCompatSpinner>(R.id.spRefreshOption).setSelection(selectedRefreshOptPos)
         }
 
-        var alertDialogBuilder = MaterialDialog.Builder(this)
+        val alertDialogBuilder = MaterialDialog.Builder(this)
         alertDialogBuilder.title("Settings")
         alertDialogBuilder.customView(dialogView, false)
         alertDialogBuilder.cancelable(true)
@@ -295,15 +295,15 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
         alertDialogBuilder.onNegative { dialog, which -> finish() }
         alertDialogBuilder.positiveText("Save")
         alertDialogBuilder.onPositive { dialog, which ->
-            var selectedIdx = dialog.customView?.findViewById<AppCompatSpinner>(R.id.spVersion)?.selectedItemPosition
+            val selectedIdx = dialog.customView?.findViewById<AppCompatSpinner>(R.id.spVersion)?.selectedItemPosition
             Timber.d("selectedIdx=" + selectedIdx)
             if (selectedIdx == 0) {
                 sharedPreferences.edit {
                     putString(PREF_SELECTED_PAGE_ID, "")
                 }
             } else {
-                var version = dialog.customView?.findViewById<AppCompatSpinner>(R.id.spVersion)?.selectedItem.toString().split(" ")[1].toLong()
-                var page = AppDatabase.getInstance(this@MainActivity)?.pageDao()?.findByVersion(version)
+                val version = dialog.customView?.findViewById<AppCompatSpinner>(R.id.spVersion)?.selectedItem.toString().split(" ")[1].toLong()
+                val page = AppDatabase.getInstance(this@MainActivity)?.pageDao()?.findByVersion(version)
                 sharedPreferences.edit {
                     putString(PREF_SELECTED_PAGE_ID, page?.id)
                     putString(PREF_REFRESH_OPTION, REFRESH_OPT_DISABLED)
@@ -313,9 +313,9 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
 
             // refresh option works only when version is latest
             if (selectedIdx == 0) {
-                var oldRefreshOpt = sharedPreferences.getString(PREF_REFRESH_OPTION, REFRESH_OPT_DEFAULT)
+                val oldRefreshOpt = sharedPreferences.getString(PREF_REFRESH_OPTION, REFRESH_OPT_DEFAULT)
 
-                var newRefreshOpt = if (dialog.customView?.findViewById<AppCompatSpinner>(R.id.spRefreshOption)?.selectedItemPosition == 0) {
+                val newRefreshOpt = if (dialog.customView?.findViewById<AppCompatSpinner>(R.id.spRefreshOption)?.selectedItemPosition == 0) {
                     REFRESH_OPT_DISABLED
                 } else {
                     dialog.customView?.findViewById<AppCompatSpinner>(R.id.spRefreshOption)?.selectedItem.toString().split(" ")[0]
@@ -334,7 +334,7 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
     }
 
     override fun onTouch(view: View?, event: MotionEvent?): Boolean {
-        var tapTimeOut = (ViewConfiguration.getDoubleTapTimeout() * 2.5).toLong()
+        val tapTimeOut = (ViewConfiguration.getDoubleTapTimeout() * 2.5).toLong()
 
         when (event?.action) {
             MotionEvent.ACTION_DOWN -> {
@@ -358,12 +358,13 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
                     if (numberOfTaps == 5) {
                         showSettingDialog()
                         numberOfTaps = 0
+                        return true
                     }
                 }
             }
         }
 
-        return true
+        return false
     }
 
     override fun onDestroy() {
