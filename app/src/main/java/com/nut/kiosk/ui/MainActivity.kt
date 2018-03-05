@@ -1,8 +1,10 @@
 package com.nut.kiosk.ui
 
 import android.annotation.SuppressLint
-import android.content.Context
-import android.content.SharedPreferences
+import android.app.PendingIntent
+import android.content.*
+import android.hardware.usb.UsbDevice
+import android.hardware.usb.UsbManager
 import android.os.Bundle
 import android.os.Handler
 import android.preference.PreferenceManager
@@ -50,6 +52,8 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
 
         const val PREF_SELECTED_PAGE_ID = "SELECTED_PAGE_ID"
         const val PREF_REFRESH_OPTION = "REFRESH_OPTION"
+
+        const val ACTION_USB_PERMISSION = "com.nut.kiosk.USB_PERMISSION"
     }
 
     // detect 5 tap
@@ -68,9 +72,48 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
 
     private val compositeDisposable = CompositeDisposable()
 
+    private lateinit var usbPermissionIntent: PendingIntent
+    private lateinit var usbManager: UsbManager
+
+    private val usbReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (ACTION_USB_PERMISSION == intent.action) {
+                synchronized(this) {
+                    val usbDevice = intent.getParcelableExtra<UsbDevice>(UsbManager.EXTRA_DEVICE)
+                    usbManager.requestPermission(usbDevice, usbPermissionIntent)
+
+                    if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
+                        if (usbDevice != null) {
+                            //call method to set up device communication
+                            Timber.d("device id %s", "****" + usbDevice.deviceId)
+                            Timber.d("product id %s", "****" + usbDevice.productId)
+
+                        } else {
+                            Timber.d("device id %s", "No USB device")
+                        }
+
+                    } else {
+                        Timber.d("shiv %s", "permission denied for device ")
+                    }
+                }
+            }
+            if (UsbManager.ACTION_USB_DEVICE_DETACHED == intent.action) {
+                // Device removed
+                synchronized (this) {
+                    // Check to see if usbDevice is yours and cleanup ...
+                }
+            }
+            if (UsbManager.ACTION_USB_DEVICE_ATTACHED == intent.action) {
+                // Device attached
+                synchronized (this) {
+                    // Qualify the new device to suit your needs and request permission
+                }
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         setContentView(R.layout.activity_main)
 
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
@@ -84,6 +127,13 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
                 View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+
+        usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
+        usbPermissionIntent = PendingIntent.getBroadcast(this, 0, Intent(ACTION_USB_PERMISSION), 0)
+        val filter = IntentFilter(ACTION_USB_PERMISSION);
+        filter.addAction(UsbManager.ACTION_USB_ACCESSORY_ATTACHED)
+        filter.addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED)
+        registerReceiver(usbReceiver, filter)
 
         initModules()
         loadPages()

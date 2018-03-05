@@ -17,6 +17,7 @@
 package com.nut.kiosk
 
 import android.app.Application
+import timber.log.BuildConfig
 import timber.log.Timber
 import timber.log.Timber.DebugTree
 
