@@ -12,6 +12,7 @@ import retrofit2.http.Path
 interface KioskApi {
     companion object {
         const val BASE_URL = "https://static-simple.herokuapp.com/"
+        //        const val BASE_URL = "http://192.168.0.2:3000/"
     }
 
     @GET("pages")

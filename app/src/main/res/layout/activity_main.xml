@@ -3,22 +3,35 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <FrameLayout
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:keepScreenOn="true"
+        android:orientation="vertical"
         tools:context=".ui.MainActivity">
 
         <WebView
             android:id="@+id/webView"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="0dip"
+            android:layout_weight="0.7"
             android:gravity="center"
-            android:keepScreenOn="true"
             android:text="@string/dummy_content"
             android:textColor="#33b5e5"
             android:textSize="50sp"
             android:textStyle="bold"/>
 
-
-    </FrameLayout>
+        <TextView
+            android:id="@+id/tvLogs"
+            android:layout_width="match_parent"
+            android:layout_height="0dip"
+            android:layout_weight="0.3"
+            android:background="@android:color/black"
+            android:lineSpacingExtra="2dip"
+            android:singleLine="false"
+            android:textColor="@android:color/white"
+            android:textSize="16sp"
+            android:visibility="gone"
+            tools:text="This is log view"/>
+    </LinearLayout>
 </layout>

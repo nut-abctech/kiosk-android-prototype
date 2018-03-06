@@ -8,6 +8,8 @@ import android.os.Handler
 import android.preference.PreferenceManager
 import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.AppCompatSpinner
+import android.support.v7.widget.SwitchCompat
+import android.text.method.ScrollingMovementMethod
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -52,6 +54,7 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
 
         const val PREF_SELECTED_PAGE_ID = "SELECTED_PAGE_ID"
         const val PREF_REFRESH_OPTION = "REFRESH_OPTION"
+        const val PREF_SHOW_LOG_VIEW = "SHOW_LOG_VIEW"
     }
 
     // detect 5 tap
@@ -76,6 +79,7 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
         initViews()
         initModules()
         loadPages()
+        updateViews()
     }
 
     private fun initViews() {
@@ -84,21 +88,40 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.hide()
 
+        tvLogs.movementMethod = ScrollingMovementMethod()
         webView.setOnTouchListener(this)
-        webView.systemUiVisibility =
-                View.SYSTEM_UI_FLAG_LOW_PROFILE or
-                View.SYSTEM_UI_FLAG_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
-                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.displayZoomControls = false
         WebView.setWebContentsDebuggingEnabled(true)
-        webView.addJavascriptInterface(KioskJsInterface(this@MainActivity), "Native")
+        webView.addJavascriptInterface(KioskJsInterface(this@MainActivity, tvLogs), "Native")
         webView.webChromeClient = WebChromeClient()
+
+        hideSystemUi()
+    }
+
+    private fun hideSystemUi() {
+        window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_LOW_PROFILE
+                or View.SYSTEM_UI_FLAG_IMMERSIVE)
+    }
+
+    private fun showSystemUI() {
+        window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN)
+    }
+
+    private fun updateViews() {
+        tvLogs.visibility = if (sharedPreferences.getBoolean(PREF_SHOW_LOG_VIEW, false)) {
+            View.VISIBLE
+        } else {
+            View.GONE
+        }
     }
 
     private fun initModules() {
@@ -287,12 +310,16 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
             dialogView.findViewById<AppCompatSpinner>(R.id.spRefreshOption).setSelection(selectedRefreshOptPos)
         }
 
+        dialogView.findViewById<SwitchCompat>(R.id.scLogView).isChecked = sharedPreferences.getBoolean(PREF_SHOW_LOG_VIEW, false)
+
         val alertDialogBuilder = MaterialDialog.Builder(this)
         alertDialogBuilder.title("Settings")
         alertDialogBuilder.customView(dialogView, false)
-        alertDialogBuilder.cancelable(true)
-        alertDialogBuilder.negativeText("Turn off app")
-        alertDialogBuilder.onNegative { dialog, which -> finish() }
+        alertDialogBuilder.cancelable(false)
+        alertDialogBuilder.neutralText("Turn off app")
+        alertDialogBuilder.onNeutral { dialog, which -> finish() }
+        alertDialogBuilder.negativeText("Cancel")
+        alertDialogBuilder.onNegative { dialog, which -> hideSystemUi() }
         alertDialogBuilder.positiveText("Save")
         alertDialogBuilder.onPositive { dialog, which ->
             val selectedIdx = dialog.customView?.findViewById<AppCompatSpinner>(R.id.spVersion)?.selectedItemPosition
@@ -329,6 +356,11 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
                     handler.post(runnable)
                 }
             }
+
+            sharedPreferences.edit {
+                putBoolean(PREF_SHOW_LOG_VIEW, dialog.customView?.findViewById<SwitchCompat>(R.id.scLogView)?.isChecked!!)
+            }
+            updateViews()
         }
         alertDialogBuilder.show()
     }
