@@ -79,21 +79,21 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
         override fun onReceive(context: Context, intent: Intent) {
             if (ACTION_USB_PERMISSION == intent.action) {
                 synchronized(this) {
-                    val usbDevice = intent.getParcelableExtra<UsbDevice>(UsbManager.EXTRA_DEVICE)
-                    usbManager.requestPermission(usbDevice, usbPermissionIntent)
+                    val device = intent.getParcelableExtra<UsbDevice>(UsbManager.EXTRA_DEVICE)
+                    usbManager.requestPermission(device, usbPermissionIntent)
 
                     if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
-                        if (usbDevice != null) {
+                        if (device != null) {
                             //call method to set up device communication
-                            Timber.d("device id %s", "****" + usbDevice.deviceId)
-                            Timber.d("product id %s", "****" + usbDevice.productId)
+                            Timber.d("device id %s", "****" + device.deviceId)
+                            Timber.d("product id %s", "****" + device.productId)
 
                         } else {
                             Timber.d("device id %s", "No USB device")
                         }
 
                     } else {
-                        Timber.d("shiv %s", "permission denied for device ")
+                        Timber.d("permission denied for device  %s", device)
                     }
                 }
             }
