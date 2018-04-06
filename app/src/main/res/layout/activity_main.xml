@@ -30,7 +30,7 @@
             android:lineSpacingExtra="2dip"
             android:singleLine="false"
             android:textColor="@android:color/white"
-            android:textSize="16sp"
+            android:textSize="12sp"
             android:visibility="gone"
             tools:text="This is log view"/>
     </LinearLayout>

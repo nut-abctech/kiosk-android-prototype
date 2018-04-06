@@ -1,13 +1,17 @@
 package com.nut.kiosk.ui
 
+import android.Manifest
 import android.annotation.SuppressLint
-import android.app.PendingIntent
 import android.content.*
-import android.hardware.usb.UsbDevice
-import android.hardware.usb.UsbManager
+import android.content.pm.PackageManager
 import android.os.Bundle
+
 import android.os.Handler
+import android.os.IBinder
+import android.os.Message
 import android.preference.PreferenceManager
+import android.support.v4.app.ActivityCompat
+import android.support.v4.content.ContextCompat
 import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.AppCompatSpinner
 import android.support.v7.widget.SwitchCompat
@@ -18,6 +22,7 @@ import android.view.ViewConfiguration
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.widget.ArrayAdapter
+import android.widget.Button
 import android.widget.Toast
 import androidx.content.edit
 import com.afollestad.materialdialogs.MaterialDialog
@@ -26,8 +31,10 @@ import com.google.gson.GsonBuilder
 import com.nut.kiosk.BuildConfig
 import com.nut.kiosk.R
 import com.nut.kiosk.api.KioskApi
+import com.nut.kiosk.extusb.UsbService
 import com.nut.kiosk.model.Page
 import com.nut.kiosk.room.AppDatabase
+import com.nut.kiosk.room.Utils
 import io.reactivex.Completable
 import io.reactivex.CompletableObserver
 import io.reactivex.android.schedulers.AndroidSchedulers
@@ -44,8 +51,9 @@ import retrofit2.converter.gson.GsonConverterFactory
 import timber.log.Timber
 import java.io.File
 import java.io.IOException
+import java.lang.ref.WeakReference
+import java.util.*
 import java.util.concurrent.TimeUnit
-
 
 @SuppressLint("ByteOrderMark")
 class MainActivity : AppCompatActivity(), View.OnTouchListener {
@@ -57,8 +65,6 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
         const val PREF_SELECTED_PAGE_ID = "SELECTED_PAGE_ID"
         const val PREF_REFRESH_OPTION = "REFRESH_OPTION"
         const val PREF_SHOW_LOG_VIEW = "SHOW_LOG_VIEW"
-
-        const val ACTION_USB_PERMISSION = "com.nut.kiosk.USB_PERMISSION"
     }
 
     // detect 5 tap
@@ -77,62 +83,20 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
 
     private val compositeDisposable = CompositeDisposable()
 
-    private lateinit var usbPermissionIntent: PendingIntent
-    private lateinit var usbManager: UsbManager
-
-    private val usbReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            if (ACTION_USB_PERMISSION == intent.action) {
-                synchronized(this) {
-                    val device = intent.getParcelableExtra<UsbDevice>(UsbManager.EXTRA_DEVICE)
-                    usbManager.requestPermission(device, usbPermissionIntent)
-
-                    if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
-                        if (device != null) {
-                            //call method to set up device communication
-                            Timber.d("device id %s", "****" + device.deviceId)
-                            Timber.d("product id %s", "****" + device.productId)
-
-                        } else {
-                            Timber.d("device id %s", "No USB device")
-                        }
-
-                    } else {
-                        Timber.d("permission denied for device  %s", device)
-                    }
-                }
-            }
-            if (UsbManager.ACTION_USB_DEVICE_DETACHED == intent.action) {
-                // Device removed
-                synchronized (this) {
-                    // Check to see if usbDevice is yours and cleanup ...
-                }
-            }
-            if (UsbManager.ACTION_USB_DEVICE_ATTACHED == intent.action) {
-                // Device attached
-                synchronized (this) {
-                    // Qualify the new device to suit your needs and request permission
-                }
-            }
-        }
-    }
+    private lateinit var usbService: UsbService
+    private lateinit var usbHandler: UsbHandler
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), 1)
+        }
+        usbHandler = UsbHandler(this)
+
         initViews()
         initModules()
         loadPages()
         updateViews()
-        registerUsbReceiver()
-    }
-
-    private fun registerUsbReceiver() {
-        usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
-        usbPermissionIntent = PendingIntent.getBroadcast(this, 0, Intent(ACTION_USB_PERMISSION), 0)
-        val filter = IntentFilter(ACTION_USB_PERMISSION);
-        filter.addAction(UsbManager.ACTION_USB_ACCESSORY_ATTACHED)
-        filter.addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED)
-        registerReceiver(usbReceiver, filter)
     }
 
     private fun initViews() {
@@ -140,7 +104,6 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
 
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.hide()
-
         tvLogs.movementMethod = ScrollingMovementMethod()
         webView.setOnTouchListener(this)
         webView.settings.javaScriptEnabled = true
@@ -149,9 +112,9 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
         WebView.setWebContentsDebuggingEnabled(true)
         webView.addJavascriptInterface(KioskJsInterface(this@MainActivity, tvLogs), "Native")
         webView.webChromeClient = WebChromeClient()
-
         hideSystemUi()
     }
+
 
     private fun hideSystemUi() {
         window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_LAYOUT_STABLE
@@ -250,7 +213,7 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
     }
 
     private fun downloadPage(page: Page) {
-        Timber.d("downloadPage() version=" + page.version)
+        Timber.d("downloadPage() version=$page.version")
 
         val disposable = kioskApi.getPage(page.path)
                 .subscribeOn(Schedulers.io())
@@ -325,7 +288,7 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
 
         val list = ArrayList<String>()
         list.add("Latest")
-        pageList?.mapTo(list) { "version " + it.version }
+        pageList?.mapTo(list) { "version $it.version" }
 
         val dataAdapter = ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, list)
         dataAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -345,7 +308,7 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
         }
 
         val refreshOption = sharedPreferences.getString(PREF_REFRESH_OPTION, REFRESH_OPT_DEFAULT)
-        Timber.d("refreshOption=" + refreshOption)
+        Timber.d("refreshOption=$refreshOption")
         if (refreshOption == REFRESH_OPT_DISABLED) {
             dialogView.findViewById<AppCompatSpinner>(R.id.spRefreshOption).setSelection(0)
         } else {
@@ -353,7 +316,7 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
             var selectedRefreshOptPos = 0
             while (i < dialogView.findViewById<AppCompatSpinner>(R.id.spRefreshOption).adapter.count) {
                 val value = dialogView.findViewById<AppCompatSpinner>(R.id.spRefreshOption).adapter.getItem(i).toString()
-                Timber.d("value=" + value)
+                Timber.d("value=$value")
                 if (value.startsWith(refreshOption)) {
                     selectedRefreshOptPos = i
                     break
@@ -364,19 +327,30 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
         }
 
         dialogView.findViewById<SwitchCompat>(R.id.scLogView).isChecked = sharedPreferences.getBoolean(PREF_SHOW_LOG_VIEW, false)
+        val btnOn = dialogView.findViewById<Button>(R.id.btnOn)
+        val btnOff = dialogView.findViewById<Button>(R.id.btnOff)
+        btnOn.setOnClickListener{
+            if (usbService != null) { // if UsbService was correctly binded, Send data
+                usbService.write("bytearray".toByteArray())
+            }
+            Toast.makeText(this@MainActivity, "Turn usb on", Toast.LENGTH_SHORT).show()
+        }
+        btnOff.setOnClickListener{
+            Toast.makeText(this@MainActivity, "Turn usb off", Toast.LENGTH_SHORT).show()
+        }
 
-        val alertDialogBuilder = MaterialDialog.Builder(this)
-        alertDialogBuilder.title("Settings")
-        alertDialogBuilder.customView(dialogView, false)
-        alertDialogBuilder.cancelable(false)
-        alertDialogBuilder.neutralText("Turn off app")
-        alertDialogBuilder.onNeutral { dialog, which -> finish() }
-        alertDialogBuilder.negativeText("Cancel")
-        alertDialogBuilder.onNegative { dialog, which -> hideSystemUi() }
-        alertDialogBuilder.positiveText("Save")
-        alertDialogBuilder.onPositive { dialog, which ->
+        val settingDialogBuilder = MaterialDialog.Builder(this)
+        settingDialogBuilder.title("Settings")
+        settingDialogBuilder.customView(dialogView, false)
+        settingDialogBuilder.cancelable(false)
+        settingDialogBuilder.neutralText("Turn off app")
+        settingDialogBuilder.onNeutral { dialog, which -> finish() }
+        settingDialogBuilder.negativeText("Cancel")
+        settingDialogBuilder.onNegative { dialog, which -> hideSystemUi() }
+        settingDialogBuilder.positiveText("Save")
+        settingDialogBuilder.onPositive { dialog, which ->
             val selectedIdx = dialog.customView?.findViewById<AppCompatSpinner>(R.id.spVersion)?.selectedItemPosition
-            Timber.d("selectedIdx=" + selectedIdx)
+            Timber.d("selectedIdx=$selectedIdx")
             if (selectedIdx == 0) {
                 sharedPreferences.edit {
                     putString(PREF_SELECTED_PAGE_ID, "")
@@ -415,7 +389,7 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
             }
             updateViews()
         }
-        alertDialogBuilder.show()
+        settingDialogBuilder.show()
     }
 
     override fun onTouch(view: View?, event: MotionEvent?): Boolean {
@@ -459,4 +433,90 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
         super.onDestroy()
     }
 
+    override fun onResume() {
+        super.onResume()
+        setFilters()
+        startService(UsbService::class.java, usbConnection, null)
+    }
+
+    override fun onPause(){
+        super.onPause()
+        unregisterReceiver(mUsbReceiver)
+        unbindService(usbConnection)
+    }
+
+    // USB service section //
+    private val mUsbReceiver = object: BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent.action) {
+                UsbService.ACTION_USB_PERMISSION_GRANTED // USB PERMISSION GRANTED
+                -> Toast.makeText(context, "USB Ready", Toast.LENGTH_SHORT).show()
+                UsbService.ACTION_USB_PERMISSION_NOT_GRANTED // USB PERMISSION NOT GRANTED
+                -> Toast.makeText(context, "USB Permission not granted", Toast.LENGTH_SHORT).show()
+                UsbService.ACTION_NO_USB // NO USB CONNECTED
+                -> Toast.makeText(context, "No USB connected", Toast.LENGTH_SHORT).show()
+                UsbService.ACTION_USB_DISCONNECTED // USB DISCONNECTED
+                -> Toast.makeText(context, "USB disconnected", Toast.LENGTH_SHORT).show()
+                UsbService.ACTION_USB_NOT_SUPPORTED // USB NOT SUPPORTED
+                -> Toast.makeText(context, "USB device not supported", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private val usbConnection = object:ServiceConnection {
+        override fun onServiceConnected(arg0:ComponentName, binder: IBinder) {
+            usbService = (binder as UsbService.UsbBinder).service
+            usbService.setHandler(usbHandler)
+        }
+        override fun onServiceDisconnected(arg0:ComponentName) {
+//            usbService = null
+        }
+    }
+
+    private fun setFilters() {
+        val filter = IntentFilter()
+        filter.addAction(UsbService.ACTION_USB_PERMISSION_GRANTED)
+        filter.addAction(UsbService.ACTION_NO_USB)
+        filter.addAction(UsbService.ACTION_USB_DISCONNECTED)
+        filter.addAction(UsbService.ACTION_USB_NOT_SUPPORTED)
+        filter.addAction(UsbService.ACTION_USB_PERMISSION_NOT_GRANTED)
+        registerReceiver(mUsbReceiver, filter)
+    }
+
+    private fun startService(service:Class<*>, serviceConnection:ServiceConnection, extras:Bundle?) {
+        if (!UsbService.SERVICE_CONNECTED)
+        {
+            val startService = Intent(this, service)
+            if (extras != null && !extras.isEmpty)
+            {
+                for (key in extras.keySet())
+                {
+                    val extra = extras.getString(key)
+                    startService.putExtra(key, extra)
+                }
+            }
+            startService(startService)
+        }
+        val bindingIntent = Intent(this, service)
+        bindService(bindingIntent, serviceConnection, Context.BIND_AUTO_CREATE)
+    }
+
+    private class UsbHandler(activity:MainActivity):Handler() {
+        private val mActivity:WeakReference<MainActivity>
+
+        init {
+            mActivity = WeakReference(activity)
+        }
+
+        override fun handleMessage(msg: Message) {
+            when (msg.what) {
+                UsbService.MESSAGE_FROM_SERIAL_PORT -> {
+                    val data = msg.obj as String
+                    mActivity.get()!!.tvLogs.append(Utils.logFormat(data))
+                }
+                UsbService.CTS_CHANGE -> Toast.makeText(mActivity.get(), "CTS_CHANGE", Toast.LENGTH_LONG).show()
+                UsbService.DSR_CHANGE -> Toast.makeText(mActivity.get(), "DSR_CHANGE", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 }

@@ -4,6 +4,7 @@ import android.content.Context
 import android.webkit.JavascriptInterface
 import android.widget.TextView
 import android.widget.Toast
+import com.nut.kiosk.room.Utils
 import timber.log.Timber
 
 
@@ -19,10 +20,10 @@ class KioskJsInterface(var context: Context, var tvLogs: TextView) {
     fun log(message: String) {
         Timber.d("log() - message=" + message)
 
-        tvLogs.append(message + "\n")
+        tvLogs.append(Utils.logFormat(message))
         // svLogs.post(Runnable { svLogs.fullScroll(View.FOCUS_DOWN) })
 
-        val scrollDelta = (tvLogs.layout.getLineBottom(tvLogs.lineCount - 1) - tvLogs.scrollY - tvLogs.height).toInt()
+        val scrollDelta = (tvLogs.layout.getLineBottom(tvLogs.lineCount - 1) - tvLogs.scrollY - tvLogs.height)
         Timber.d("scrollDelta=" + scrollDelta)
         if (scrollDelta > 0)
             tvLogs.scrollBy(0, scrollDelta)
