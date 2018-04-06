@@ -16,20 +16,28 @@
 
 package com.nut.kiosk
 
+import android.Manifest
 import android.app.Application
+import android.content.ContentValues.TAG
+import android.content.pm.PackageManager
+import android.os.Build
+import android.support.v4.content.ContextCompat
+import android.util.Log
+import com.nut.kiosk.room.FileLoggingTree
 import timber.log.BuildConfig
 import timber.log.Timber
 import timber.log.Timber.DebugTree
+
 
 
 class KioskApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-
-        if (BuildConfig.DEBUG) {
-            Timber.plant(DebugTree())
-        }
+//        if (BuildConfig.DEBUG) {
+//            Timber.plant(DebugTree())
+//        }
+        Timber.plant(FileLoggingTree())
     }
 
     /** A tree which logs important information for crash reporting. */
