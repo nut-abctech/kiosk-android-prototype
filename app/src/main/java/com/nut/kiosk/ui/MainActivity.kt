@@ -22,7 +22,6 @@ import android.view.ViewConfiguration
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.widget.ArrayAdapter
-import android.widget.Button
 import android.widget.Toast
 import androidx.content.edit
 import com.afollestad.materialdialogs.MaterialDialog
@@ -31,7 +30,7 @@ import com.google.gson.GsonBuilder
 import com.nut.kiosk.BuildConfig
 import com.nut.kiosk.R
 import com.nut.kiosk.api.KioskApi
-import com.nut.kiosk.extusb.UsbService
+import com.nut.kiosk.service.*
 import com.nut.kiosk.model.Page
 import com.nut.kiosk.room.AppDatabase
 import com.nut.kiosk.room.Utils
@@ -57,15 +56,15 @@ import java.util.concurrent.TimeUnit
 
 @SuppressLint("ByteOrderMark")
 class MainActivity : AppCompatActivity(), View.OnTouchListener {
-
-    companion object {
-        const val REFRESH_OPT_DISABLED = "DISABLED"
-        const val REFRESH_OPT_DEFAULT = "15"
-
-        const val PREF_SELECTED_PAGE_ID = "SELECTED_PAGE_ID"
-        const val PREF_REFRESH_OPTION = "REFRESH_OPTION"
-        const val PREF_SHOW_LOG_VIEW = "SHOW_LOG_VIEW"
-    }
+//
+//    companion object {
+//        const val REFRESH_OPT_DISABLED = "DISABLED"
+//        const val REFRESH_OPT_DEFAULT = "15"
+//
+//        const val PREF_SELECTED_PAGE_ID = "SELECTED_PAGE_ID"
+//        const val PREF_REFRESH_OPTION = "REFRESH_OPTION"
+//        const val PREF_SHOW_LOG_VIEW = "SHOW_LOG_VIEW"
+//    }
 
     // detect 5 tap
     private var numberOfTaps = 0
@@ -133,7 +132,7 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
     }
 
     private fun updateViews() {
-        tvLogs.visibility = if (sharedPreferences.getBoolean(PREF_SHOW_LOG_VIEW, false)) {
+        tvLogs.visibility = if (sharedPreferences.getBoolean(Setting.PREF_SHOW_LOG_VIEW, false)) {
             View.VISIBLE
         } else {
             View.GONE
@@ -170,16 +169,16 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
             loadPages()
 
             // re-register
-            val refreshOption = sharedPreferences.getString(PREF_REFRESH_OPTION, REFRESH_OPT_DEFAULT)
-            if (refreshOption != REFRESH_OPT_DISABLED) {
+            val refreshOption = sharedPreferences.getString(Setting.PREF_REFRESH_OPTION, Setting.REFRESH_OPT_DEFAULT)
+            if (refreshOption != Setting.REFRESH_OPT_DISABLED) {
                 handler.removeCallbacks(runnable)
                 handler.postDelayed(runnable, refreshOption.toLong() * 1000)// * 60)
             }
         }
 
 
-        val refreshOption = sharedPreferences.getString(PREF_REFRESH_OPTION, REFRESH_OPT_DEFAULT)
-        if (sharedPreferences.getString(PREF_SELECTED_PAGE_ID, "").isNullOrEmpty() && refreshOption != REFRESH_OPT_DISABLED) {
+        val refreshOption = sharedPreferences.getString(Setting.PREF_REFRESH_OPTION, Setting.REFRESH_OPT_DEFAULT)
+        if (sharedPreferences.getString(Setting.PREF_SELECTED_PAGE_ID, "").isNullOrEmpty() && refreshOption != Setting.REFRESH_OPT_DISABLED) {
             handler.removeCallbacks(runnable)
             handler.postDelayed(runnable, refreshOption.toLong() * 1000) // * 60)
             loadPages()
@@ -258,7 +257,7 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
     }
 
     private fun showSelectedPage() {
-        val selectedPageId = sharedPreferences.getString(PREF_SELECTED_PAGE_ID, "")
+        val selectedPageId = sharedPreferences.getString(Setting.PREF_SELECTED_PAGE_ID, "")
         Timber.d("showSelectedPage() - selectedPageId=" + selectedPageId)
 
         val selectedPage = if (selectedPageId.isNullOrEmpty()) {
@@ -294,7 +293,7 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
         dataAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         dialogView.findViewById<AppCompatSpinner>(R.id.spVersion).adapter = dataAdapter
 
-        val selectedPageId = sharedPreferences.getString(PREF_SELECTED_PAGE_ID, "")
+        val selectedPageId = sharedPreferences.getString(Setting.PREF_SELECTED_PAGE_ID, "")
         if (selectedPageId.isNullOrEmpty()) {
             dialogView.findViewById<AppCompatSpinner>(R.id.spVersion).setSelection(0)
         } else {
@@ -307,9 +306,9 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
             }
         }
 
-        val refreshOption = sharedPreferences.getString(PREF_REFRESH_OPTION, REFRESH_OPT_DEFAULT)
+        val refreshOption = sharedPreferences.getString(Setting.PREF_REFRESH_OPTION, Setting.REFRESH_OPT_DEFAULT)
         Timber.d("refreshOption=$refreshOption")
-        if (refreshOption == REFRESH_OPT_DISABLED) {
+        if (refreshOption == Setting.REFRESH_OPT_DISABLED) {
             dialogView.findViewById<AppCompatSpinner>(R.id.spRefreshOption).setSelection(0)
         } else {
             var i = 0
@@ -325,18 +324,33 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
             }
             dialogView.findViewById<AppCompatSpinner>(R.id.spRefreshOption).setSelection(selectedRefreshOptPos)
         }
+        val switchLogView = dialogView.findViewById<SwitchCompat>(R.id.scLogView)
+        switchLogView?.isChecked = sharedPreferences.getBoolean(Setting.PREF_SHOW_LOG_VIEW, false)
+        val switchBill = dialogView.findViewById<SwitchCompat>(R.id.switchBill)
+        switchBill?.isChecked = sharedPreferences.getBoolean(Setting.BILL_ON, false)
+        val switchCoin = dialogView.findViewById<SwitchCompat>(R.id.switchCoin)
+        switchCoin?.isChecked = sharedPreferences.getBoolean(Setting.COIN_ON, false)
+        val switchCash = dialogView.findViewById<SwitchCompat>(R.id.switchCash)
+        switchCash?.isChecked = sharedPreferences.getBoolean(Setting.CASH_OPERATION_ENABLE, false)
 
-        dialogView.findViewById<SwitchCompat>(R.id.scLogView).isChecked = sharedPreferences.getBoolean(PREF_SHOW_LOG_VIEW, false)
-        val btnOn = dialogView.findViewById<Button>(R.id.btnOn)
-        val btnOff = dialogView.findViewById<Button>(R.id.btnOff)
-        btnOn.setOnClickListener{
+        switchBill.setOnCheckedChangeListener{dialogView, isChecked ->
             if (usbService != null) { // if UsbService was correctly binded, Send data
-                usbService.write("bytearray".toByteArray())
+                usbService.write(if (isChecked) BillOn.cmd() else BillOff.cmd())
+                Toast.makeText(this@MainActivity, "Bill ${if (isChecked) "ON" else "OFF"}", Toast.LENGTH_SHORT).show()
             }
-            Toast.makeText(this@MainActivity, "Turn usb on", Toast.LENGTH_SHORT).show()
         }
-        btnOff.setOnClickListener{
-            Toast.makeText(this@MainActivity, "Turn usb off", Toast.LENGTH_SHORT).show()
+        switchCoin.setOnCheckedChangeListener{dialogView, isChecked ->
+            if (usbService != null) { // if UsbService was correctly binded, Send data
+                usbService.write(if (isChecked) CoinOn.cmd() else CoinOff.cmd())
+                Toast.makeText(this@MainActivity, "Coin ${if (isChecked) "ON" else "OFF"}", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        switchCash.setOnCheckedChangeListener{dialogView, isChecked ->
+            if (usbService != null) { // if UsbService was correctly binded, Send data
+                usbService.write(if (isChecked) CashEnable.cmd() else CashDisable.cmd())
+                Toast.makeText(this@MainActivity, "Cash Operation ${if (isChecked) "Enabled" else "Disabled"}", Toast.LENGTH_SHORT).show()
+            }
         }
 
         val settingDialogBuilder = MaterialDialog.Builder(this)
@@ -353,31 +367,31 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
             Timber.d("selectedIdx=$selectedIdx")
             if (selectedIdx == 0) {
                 sharedPreferences.edit {
-                    putString(PREF_SELECTED_PAGE_ID, "")
+                    putString(Setting.PREF_SELECTED_PAGE_ID, "")
                 }
             } else {
                 val version = dialog.customView?.findViewById<AppCompatSpinner>(R.id.spVersion)?.selectedItem.toString().split(" ")[1].toLong()
                 val page = AppDatabase.getInstance(this@MainActivity)?.pageDao()?.findByVersion(version)
                 sharedPreferences.edit {
-                    putString(PREF_SELECTED_PAGE_ID, page?.id)
-                    putString(PREF_REFRESH_OPTION, REFRESH_OPT_DISABLED)
+                    putString(Setting.PREF_SELECTED_PAGE_ID, page?.id)
+                    putString(Setting.PREF_REFRESH_OPTION, Setting.REFRESH_OPT_DISABLED)
                 }
             }
             showSelectedPage()
 
             // refresh option works only when version is latest
             if (selectedIdx == 0) {
-                val oldRefreshOpt = sharedPreferences.getString(PREF_REFRESH_OPTION, REFRESH_OPT_DEFAULT)
+                val oldRefreshOpt = sharedPreferences.getString(Setting.PREF_REFRESH_OPTION, Setting.REFRESH_OPT_DEFAULT)
 
                 val newRefreshOpt = if (dialog.customView?.findViewById<AppCompatSpinner>(R.id.spRefreshOption)?.selectedItemPosition == 0) {
-                    REFRESH_OPT_DISABLED
+                    Setting.REFRESH_OPT_DISABLED
                 } else {
                     dialog.customView?.findViewById<AppCompatSpinner>(R.id.spRefreshOption)?.selectedItem.toString().split(" ")[0]
                 }
 
                 if (oldRefreshOpt != newRefreshOpt) {
                     sharedPreferences.edit {
-                        putString(PREF_REFRESH_OPTION, newRefreshOpt)
+                        putString(Setting.PREF_REFRESH_OPTION, newRefreshOpt)
                     }
                     handler.removeCallbacks(runnable)
                     handler.post(runnable)
@@ -385,7 +399,10 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
             }
 
             sharedPreferences.edit {
-                putBoolean(PREF_SHOW_LOG_VIEW, dialog.customView?.findViewById<SwitchCompat>(R.id.scLogView)?.isChecked!!)
+                putBoolean(Setting.PREF_SHOW_LOG_VIEW, switchLogView.isChecked!!)
+                putBoolean(Setting.BILL_ON, switchBill.isChecked!!)
+                putBoolean(Setting.COIN_ON, switchCoin.isChecked!!)
+                putBoolean(Setting.CASH_OPERATION_ENABLE, switchCash.isChecked!!)
             }
             updateViews()
         }
@@ -445,7 +462,7 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
         unbindService(usbConnection)
     }
 
-    // USB service section //
+    // **************** USB service section *********************//
     private val mUsbReceiver = object: BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {

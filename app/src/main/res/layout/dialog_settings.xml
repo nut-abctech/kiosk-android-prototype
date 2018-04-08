@@ -65,13 +65,13 @@
             android:orientation="horizontal">
 
             <TextView
-                android:layout_width="0dip"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="8dip"
                 android:layout_weight="1.0"
                 android:text="Show log view"
                 android:textAppearance="@style/TextAppearance.AppCompat.Subhead"
-                android:textStyle="bold"/>
+                android:textStyle="bold" />
 
             <android.support.v7.widget.SwitchCompat
                 android:id="@+id/scLogView"
@@ -87,28 +87,58 @@
 
             <TextView
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:layout_marginLeft="8dip"
                 android:layout_weight="1.0"
-                android:text="Ext device USB"
+                android:text="Bill Module"
                 android:textAppearance="@style/TextAppearance.AppCompat.Subhead"
                 android:textStyle="bold" />
 
-            <Button
-                android:id="@+id/btnOn"
+            <android.support.v7.widget.SwitchCompat
+                android:id="@+id/switchBill"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:theme="@style/PrimaryFlatButton"
-                android:text="on" />
+                android:layout_height="wrap_content"/>
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dip"
+            android:gravity="center_vertical">
 
-            <Button
-                android:id="@+id/btnOff"
+            <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:theme="@style/PrimaryFlatButton"
-                android:text="off" />
+                android:layout_marginLeft="8dip"
+                android:layout_weight="1.0"
+                android:text="Coin Module"
+                android:textAppearance="@style/TextAppearance.AppCompat.Subhead"
+                android:textStyle="bold" />
+
+            <android.support.v7.widget.SwitchCompat
+                android:id="@+id/switchCoin"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dip"
+            android:gravity="center_horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="8dip"
+                android:layout_weight="1.0"
+                android:text="Cash Operation"
+                android:textAppearance="@style/TextAppearance.AppCompat.Subhead"
+                android:textStyle="bold" />
+
+            <android.support.v7.widget.SwitchCompat
+                android:id="@+id/switchCash"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
         </LinearLayout>
     </LinearLayout>
 </layout>

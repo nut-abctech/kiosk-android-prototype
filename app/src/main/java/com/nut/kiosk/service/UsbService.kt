@@ -1,4 +1,4 @@
-package com.nut.kiosk.extusb
+package com.nut.kiosk.service
 
 import android.app.PendingIntent
 import android.app.Service
