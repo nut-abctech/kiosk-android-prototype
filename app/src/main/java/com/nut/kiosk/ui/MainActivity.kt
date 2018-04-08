@@ -56,16 +56,6 @@ import java.util.concurrent.TimeUnit
 
 @SuppressLint("ByteOrderMark")
 class MainActivity : AppCompatActivity(), View.OnTouchListener {
-//
-//    companion object {
-//        const val REFRESH_OPT_DISABLED = "DISABLED"
-//        const val REFRESH_OPT_DEFAULT = "15"
-//
-//        const val PREF_SELECTED_PAGE_ID = "SELECTED_PAGE_ID"
-//        const val PREF_REFRESH_OPTION = "REFRESH_OPTION"
-//        const val PREF_SHOW_LOG_VIEW = "SHOW_LOG_VIEW"
-//    }
-
     // detect 5 tap
     private var numberOfTaps = 0
     private var lastTapTimeMs: Long = 0
@@ -191,7 +181,7 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe({ pageList ->
 
-                    Timber.d("loadPages() count=" + pageList.size)
+                    Timber.d("loadPages() count=${pageList.size}")
                     for (page in pageList) {
                         val file = File(filesDir, page.path)
                         page.downloaded = file.exists()
@@ -245,7 +235,7 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
                                     }
                                 })
 
-                        Timber.d("page version " + page.version + "has saved")
+                        Timber.d("page version ${page.version} has saved")
                     } catch (e: IOException) {
                         Timber.e(e)
                         Toast.makeText(this, "Failed to save content file", Toast.LENGTH_SHORT).show()
@@ -258,7 +248,7 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
 
     private fun showSelectedPage() {
         val selectedPageId = sharedPreferences.getString(Setting.PREF_SELECTED_PAGE_ID, "")
-        Timber.d("showSelectedPage() - selectedPageId=" + selectedPageId)
+        Timber.d("showSelectedPage() - selectedPageId=$selectedPageId")
 
         val selectedPage = if (selectedPageId.isNullOrEmpty()) {
             AppDatabase.getInstance(this@MainActivity)?.pageDao()?.findLatest()
@@ -269,10 +259,10 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
         if (selectedPage == null) {
             webView.loadUrl("file:///android_asset/loading.html")
         } else {
-            Timber.d("selectedPage=" + selectedPage.id)
+            Timber.d("selectedPage=${selectedPage.id}")
             try {
                 val file = File(filesDir, selectedPage.path)
-                webView.loadUrl("file:///" + file)
+                webView.loadUrl("file:///$file")
             } catch (e: Exception) {
                 Timber.e(e)
                 Toast.makeText(this, "Failed to read content file\n" + e.localizedMessage, Toast.LENGTH_SHORT).show()
@@ -446,7 +436,6 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
     override fun onDestroy() {
         compositeDisposable.clear()
         handler.removeCallbacks(runnable)
-
         super.onDestroy()
     }
 
@@ -465,6 +454,13 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
     // **************** USB service section *********************//
     private val mUsbReceiver = object: BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action != UsbService.ACTION_USB_READY) {
+                val dialogView = View.inflate(this@MainActivity, R.layout.dialog_settings, null)
+                dialogView.findViewById<SwitchCompat>(R.id.switchBill)?.isChecked = false
+                dialogView.findViewById<SwitchCompat>(R.id.switchCoin)?.isChecked = false
+                dialogView.findViewById<SwitchCompat>(R.id.switchCash)?.isChecked = false
+            }
+
             when (intent.action) {
                 UsbService.ACTION_USB_PERMISSION_GRANTED // USB PERMISSION GRANTED
                 -> Toast.makeText(context, "USB Ready", Toast.LENGTH_SHORT).show()
