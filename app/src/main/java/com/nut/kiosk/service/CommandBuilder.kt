@@ -4,7 +4,7 @@ import timber.log.Timber
 import kotlin.experimental.xor
 
 
-interface MiddlewareBoardCommand{
+interface ControlBoardCommand{
     fun cmd(): ByteArray
 }
 
@@ -16,11 +16,12 @@ private class CommandBuilder(val cmd:String, val len:String=LEN_0, val data:Stri
 
         const val COIN_OFF = "0xA9"
         const val COIN_ON = "0xAA"
+
         const val BILL_OFF = "0xAB"
         const val BILL_ON = "0xAC"
 
-        const val CASH_OPERATION = "0xB9"
-        const val CASH_CANCEL = "0xB1"
+        const val CASH_OPERATION = "0xB7"
+        const val CASH_CANCEL = "0xB8"
 
         const val LEN_1 = "0x01"
         const val LEN_0 = "0x00"
@@ -42,33 +43,32 @@ private class CommandBuilder(val cmd:String, val len:String=LEN_0, val data:Stri
     }
 }
 
-object BillOn: MiddlewareBoardCommand {
+object BillOn: ControlBoardCommand {
     private var builder:CommandBuilder = CommandBuilder(CommandBuilder.BILL_ON)
     override fun cmd() = builder.buildCmd()
 }
 
-object BillOff: MiddlewareBoardCommand {
+object BillOff: ControlBoardCommand {
     private var builder:CommandBuilder = CommandBuilder(CommandBuilder.BILL_OFF)
     override fun cmd() = builder.buildCmd()
 }
 
-object CoinOn: MiddlewareBoardCommand {
+object CoinOn: ControlBoardCommand {
     private var builder:CommandBuilder = CommandBuilder(CommandBuilder.COIN_ON)
     override fun cmd() = builder.buildCmd()
 }
 
-object CoinOff: MiddlewareBoardCommand {
+object CoinOff: ControlBoardCommand {
     private var builder:CommandBuilder = CommandBuilder(CommandBuilder.COIN_OFF)
     override fun cmd() = builder.buildCmd()
 }
 
-object CashEnable: MiddlewareBoardCommand {
+object CashEnable: ControlBoardCommand {
     private var builder:CommandBuilder = CommandBuilder(CommandBuilder.CASH_OPERATION)
     override fun cmd() = builder.buildCmd()
 }
 
-object CashDisable: MiddlewareBoardCommand {
+object CashDisable: ControlBoardCommand {
     private var builder:CommandBuilder = CommandBuilder(CommandBuilder.CASH_CANCEL)
     override fun cmd() = builder.buildCmd()
 }
-//4DB900013C

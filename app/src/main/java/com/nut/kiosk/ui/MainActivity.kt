@@ -524,8 +524,8 @@ class MainActivity : AppCompatActivity(), View.OnTouchListener {
         override fun handleMessage(msg: Message) {
             when (msg.what) {
                 UsbService.MESSAGE_FROM_SERIAL_PORT -> {
-                    val data = msg.obj as String
-                    mActivity.get()!!.tvLogs.append(Utils.logFormat(data))
+                    val money = msg.obj as Int
+                    mActivity.get()!!.tvLogs.append(Utils.logFormat("Receive Cash $money Bht"))
                 }
                 UsbService.CTS_CHANGE -> Toast.makeText(mActivity.get(), "CTS_CHANGE", Toast.LENGTH_LONG).show()
                 UsbService.DSR_CHANGE -> Toast.makeText(mActivity.get(), "DSR_CHANGE", Toast.LENGTH_LONG).show()

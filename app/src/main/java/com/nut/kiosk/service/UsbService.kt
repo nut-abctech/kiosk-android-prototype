@@ -15,11 +15,29 @@ import android.os.IBinder
 import com.felhr.usbserial.CDCSerialDevice
 import com.felhr.usbserial.UsbSerialInterface
 import com.felhr.usbserial.UsbSerialDevice
+import com.felhr.utils.HexData
 import timber.log.Timber
-import java.io.UnsupportedEncodingException
-
 
 class UsbService : Service() {
+
+    private object CashReader {
+        private const val MARK_BIT = 0x0E
+
+        private fun findMarkBit(data:ByteArray):Int {
+            data.forEachIndexed {index, b ->
+                if (b.toInt() == MARK_BIT) return index
+            }
+            return -1
+        }
+
+        fun read(data:ByteArray): Int {
+            val index = findMarkBit(data)
+            if (index > 0)
+                return data[index + 1].toInt()
+            return index
+        }
+    }
+
     companion object {
         const val ACTION_USB_READY = "com.nut.kiosk.USB_READY"
         const val ACTION_USB_ATTACHED = "android.hardware.usb.action.USB_DEVICE_ATTACHED"
@@ -54,13 +72,9 @@ class UsbService : Service() {
      *  be treated there.
      */
     private val mCallback = UsbSerialInterface.UsbReadCallback { msg ->
-        try {
-            val data = String(msg, charset("UTF-8"))
-            Timber.i("Receive msg: $data")
-            mHandler.obtainMessage(MESSAGE_FROM_SERIAL_PORT, data).sendToTarget()
-        } catch (e: UnsupportedEncodingException) {
-            Timber.e(e)
-        }
+        val data = HexData.hexToString(msg)
+        Timber.i("Receive msg: $data")
+        mHandler.obtainMessage(MESSAGE_FROM_SERIAL_PORT, CashReader.read(msg)).sendToTarget()
     }
 
     /*
